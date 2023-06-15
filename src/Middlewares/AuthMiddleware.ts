@@ -3,28 +3,26 @@ import jsonwebtoken from "jsonwebtoken";
 import {TokenPayload} from "../index";
 import UserModel, {Role} from "../Model/User";
 
-
 export default function (role?: Role) {
     // Inner function must call "next" ☹️
-    //  i was expecting it to be automatic like how it is when it's the root
+    //  i was expecting it to be automatic like when it's the root
     return async function (req: Request, res: Response, next: NextFunction) {
-        const auth_header = req.header("Authorization")
+        const authHeader = req.header("Authorization")
 
         // 1. The auth token is here?
-        if (!auth_header) {
+        if (!authHeader) {
             return res.sendStatus(401);
         }
 
-        // 2. I'm not sure if I should perform this check 🤔
-        if (!auth_header.startsWith("Bearer")) {
+        // 2. The token type is correct?
+        if (!authHeader.startsWith("Bearer")) {
             return res.status(400).json({
                 message: "expecting a bearer token"
             })
         }
 
-        // 3. User may try to be funny by sending a take token
-        const payload = jsonwebtoken.decode(auth_header.substring(7), {json: true}) as TokenPayload
-
+        // 3. Let's try to decode this token now
+        const payload = jsonwebtoken.decode(authHeader.substring(7), {json: true}) as TokenPayload
         if (!payload) {
             return res
                 .status(400)
@@ -33,7 +31,7 @@ export default function (role?: Role) {
                 })
         }
 
-        // 4. Check if user role is valid for this resource
+        // 4. If the route is constrained for a single role, check if the user has it.
         if (role) {
             const user = await UserModel.findById(payload.userId, {role: 1})
 
@@ -46,8 +44,10 @@ export default function (role?: Role) {
             }
         }
 
-        // Success 😀
-        req.authUser = {id: payload.userId}
+        // Success 😀 🎉
+        req.authUser = {
+            id: payload.userId
+        }
         next()
     }
 }
